@@ -1,6 +1,7 @@
 package com.example.taller2components
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -11,37 +12,31 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.Navigation
 import com.example.taller2components.ui.theme.Taller2componentsTheme
+import com.google.firebase.database.FirebaseDatabase
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Conexión con Firebase Realtime Database
+        val database = FirebaseDatabase.getInstance()
+        val myRef = database.getReference("mensaje_prueba")
+
+        myRef.setValue("¡Hola desde Firebase!")
+            .addOnSuccessListener {
+                Toast.makeText(this, "Conexión exitosa", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener {
+                Toast.makeText(this, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+
         setContent {
             Taller2componentsTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                Navigation
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    Taller2componentsTheme {
-        Greeting("Android")
     }
 }
