@@ -8,11 +8,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
 import androidx.navigation.NavController
 import androidx.navigation.NavHost
@@ -27,33 +29,25 @@ import com.example.taller2components.Enum.EnumNavigation
  */
 @Preview
 @Composable
-fun ViewLoginScreem() {
+fun ViewLoginScreem(){
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "Login") {
+    NavHost(navController = navController, startDestination = "Login"){
         composable("Login") {
             LoginScreen(navController)
         }
     }
 }
 
-/**
- * Pantalla de inicio de sesión del usuario.
- * Permite ingresar correo y contraseña y autenticarse mediante FirebaseAuth.
- * Si el inicio de sesión es exitoso, se navega a la pantalla principal (HOME).
- *
- * @param navController Controlador de navegación para redirigir a otras pantallas.
- */
 @Composable
 fun LoginScreen(navController: NavController) {
     var email by remember { mutableStateOf(TextFieldValue()) }
     var password by remember { mutableStateOf(TextFieldValue()) }
     var isLoading by remember { mutableStateOf(false) }
-
     val auth = FirebaseAuth.getInstance()
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("user_prefs", 0)
 
-    Scaffold { innerPadding ->
+    Scaffold{ innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -61,10 +55,28 @@ fun LoginScreen(navController: NavController) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Bienvenido a 4 en linea Game UD", style = MaterialTheme.typography.bodyLarge)
+            Row {
+                Text(
+                    "Four",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 24.sp
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    "In",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 19.sp
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    "Row",
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 24.sp
+                )
+            }
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Campo de correo electrónico
+            // Email TextField
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -74,7 +86,7 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo de contraseña
+            // Password TextField
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -85,7 +97,7 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón de inicio de sesión
+            // Login Button
             Button(
                 onClick = {
                     isLoading = true
@@ -93,12 +105,14 @@ fun LoginScreen(navController: NavController) {
                         .addOnCompleteListener { task ->
                             isLoading = false
                             if (task.isSuccessful) {
-                                // Guardar ID del usuario autenticado en preferencias
+                                //Almaceno el id de la persona logeada e ingresada
                                 val userId = task.result?.user?.uid ?: ""
                                 prefs.edit { putString("user_id", userId) }
+                                // Mostrar Toast usando contexto
                                 Toast.makeText(context, "¡Login exitoso!", Toast.LENGTH_SHORT).show()
                                 navController.navigate(EnumNavigation.HOME.toString())
                             } else {
+                                // Mostrar Toast con error
                                 Toast.makeText(context, "Error: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                             }
                         }

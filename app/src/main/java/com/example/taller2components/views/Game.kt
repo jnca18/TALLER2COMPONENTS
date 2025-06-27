@@ -20,12 +20,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +51,7 @@ import com.example.taller2components.Enum.EnumNavigation
 import com.example.taller2components.ViewModel.GameViewModel
 import com.example.taller2components.persistence.Casilla
 import com.example.taller2components.persistence.Player
+import com.example.taller2components.persistence.Pregunta
 import com.example.taller2components.persistence.Tablero
 
 /**
@@ -83,24 +86,22 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
         navController.navigate(EnumNavigation.LOGIN.toString())
         return
     }
-
     val id = remember { mutableStateOf(idBoard) }
     val board by viewModel.board.collectAsState()
-    val players by viewModel.players.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("user_prefs", 0)
     val currentUserId = prefs.getString("user_id", null)
-
+    val mostrarPregunta = remember { mutableStateOf(false) }
+    val preguntaActual = remember { mutableStateOf<Pregunta?>(null) }
+    val preguntaRespondida = remember { mutableStateOf(false) }
     LaunchedEffect(id.value) {
-        viewModel.listenToPlayers(id.value)
-        viewModel.consultarTablero(id.value)
+        id.value.let { viewModel.consultarTablero(it) }
     }
 
     when {
         isLoading -> {
-            // Pantalla de carga mientras se consulta el tablero
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -110,11 +111,33 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
                 Text("Cargando datos del tablero...")
             }
         }
-
         board?.state == true -> {
-            val tablero = board?.let { Tablero.iniciarTablero(it) }
+            LaunchedEffect(board!!.currentPlayerIndex) {
+                Log.d("MainGame", "prueba")
+                val playerTurn = board!!.players.find { it.turno == board!!.currentPlayerIndex }
+                Log.d("MainGame", "prueba2: "+playerTurn?.toString()+ currentUserId)
+                // Validamos si el turno actual le pertenece al usuario conectado
+                if (playerTurn != null && playerTurn.idPlayer == currentUserId) {
+                    // Reiniciar estado de pregunta cuando cambia el turno del jugador actual
+                    preguntaRespondida.value = false
 
-            // Pantalla del juego
+                    if (!preguntaRespondida.value) {
+                        val random = (1..4).random()
+                        viewModel.consultarPregunta(random.toString()) { pregunta ->
+                            if (pregunta != null) {
+                                Log.d("MainGame", "prueba3: "+(pregunta))
+
+                                preguntaActual.value = pregunta
+                                mostrarPregunta.value = true
+                            } else {
+                                Log.w("MainGame", "No se encontró pregunta con ID: $random")
+                            }
+                        }
+                    }
+                }
+            }
+
+
             Scaffold(
                 topBar = {
                     CenterAlignedTopAppBar(
@@ -131,22 +154,71 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
                 ) {
                     currentUserId?.let {
                         TableroScreen(
-                            tablero = tablero,
-                            players = players,
+                            grilla = board!!.grid,
+                            players = board!!.players,
                             currentUserId = it,
                             currentTurn = board!!.currentPlayerIndex,
                             onColumnSelected = { col, player ->
                                 viewModel.switchTurn(id.value)
-                                viewModel.makeMove(id.value, col, player)
+                                viewModel.makeMove(id.value, col,  player)
                             }
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    if (mostrarPregunta.value && preguntaActual.value != null) {
+                        val pregunta = preguntaActual.value!!
+                        var selectedIndex by remember { mutableStateOf(-1) }
+
+                        AlertDialog(
+                            onDismissRequest = { /* no se puede cerrar */ },
+                            title = { Text("Pregunta para continuar") },
+                            text = {
+                                Column {
+                                    Text(pregunta.pregunta)
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    pregunta.opciones.forEachIndexed { index, opcion ->
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { selectedIndex = index }
+                                                .padding(4.dp)
+                                        ) {
+                                            RadioButton(
+                                                selected = selectedIndex == index,
+                                                onClick = { selectedIndex = index }
+                                            )
+                                            Text(text = opcion)
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        if (selectedIndex == pregunta.respuesta) {
+                                            // Respuesta correcta
+                                            mostrarPregunta.value = false
+                                            preguntaRespondida.value = true
+                                        } else {
+                                            // Respuesta incorrecta, cambia turno
+                                            viewModel.switchTurn(id.value)
+                                            mostrarPregunta.value = false
+                                            preguntaRespondida.value = true
+                                        }
+                                    },
+                                    enabled = selectedIndex != -1
+                                ) {
+                                    Text("Responder")
+                                }
+                            }
+                        )
+                    }
+
                 }
             }
         }
-
         else -> {
-            // Mensaje mientras se espera al host
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -159,25 +231,26 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
     }
 }
 
-/**
- * Composable que representa visualmente el tablero de juego con las fichas y
- * controles para que el jugador actual seleccione su movimiento.
- *
- * @param tablero Matriz bidimensional de casillas del tablero.
- * @param players Lista de jugadores en la partida.
- * @param currentUserId ID del jugador actual (identificado desde SharedPreferences).
- * @param currentTurn Número de turno (1 o 2) que indica a qué jugador le corresponde jugar.
- * @param onColumnSelected Función callback que se invoca cuando se selecciona una columna para jugar.
- */
 @Composable
 fun TableroScreen(
-    tablero: List<List<Casilla>>?,
+    grilla: List<Casilla>,
     players: List<Player>,
     currentUserId: String,
     currentTurn: Int,
     onColumnSelected: (Int, Player) -> Unit
 ) {
-    if (tablero.isNullOrEmpty() || tablero[0].isEmpty()) return
+    if (grilla.isEmpty()) return
+
+    // Determinar dimensiones
+    val filas = grilla.maxOfOrNull { it.fila }?.plus(1) ?: 6
+    val columnas = grilla.maxOfOrNull { it.columna }?.plus(1) ?: 7
+
+    // Reconstruir la matriz a partir de la lista plana
+    val tablero = List(filas) { fila ->
+        List(columnas) { columna ->
+            grilla.find { it.fila == fila && it.columna == columna } ?: Casilla(fila, columna, 0, "")
+        }
+    }
 
     val playerTurn = players.find { it.turno == currentTurn }
 
@@ -187,68 +260,32 @@ fun TableroScreen(
             .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Mostrar de quién es el turno
+        // Información de turno
         Text(
-            text = "Turno de: ${playerTurn?.correo}",
+            text = "Turno de: ${playerTurn?.correo ?: "Desconocido"}",
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Mostrar tablero visual
-        Box(modifier = Modifier.padding(4.dp)) {
-            Column {
-                for (row in tablero.indices) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        for (col in tablero[row].indices) {
-                            val casilla = tablero[row][col]
-                            val player = players.find { it.turno == casilla.valor }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .padding(2.dp)
-                                    .background(Color.White.copy(alpha = 0.8f))
-                                    .border(1.dp, Color.DarkGray),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (casilla.valor != 0 && player != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(
-                                                color = player.color.colorFromHex(),
-                                                shape = CircleShape
-                                            )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Flechas de selección para el jugador en turno
+        // Botones de selección por columna
         if (playerTurn != null && playerTurn.idPlayer == currentUserId) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
-                for (col in tablero[0].indices) {
+                for (col in 0 until columnas) {
                     val isColumnFull = tablero.all { row -> row[col].valor != 0 }
 
                     Box(
                         modifier = Modifier
                             .size(48.dp)
                             .padding(4.dp)
-                            .clickable(enabled = !isColumnFull) {
-                                onColumnSelected(col, playerTurn)
-                            }
+                            .clickable(
+                                enabled = !isColumnFull,
+                                onClick = { onColumnSelected(col, playerTurn) }
+                            )
                             .background(
                                 if (isColumnFull) Color.Red.copy(alpha = 0.3f)
                                 else Color.LightGray.copy(alpha = 0.5f),
@@ -267,18 +304,46 @@ fun TableroScreen(
             }
         }
 
+        // Render de la grilla
+        Column {
+            for (fila in tablero.indices) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    for (col in tablero[fila].indices) {
+                        val casilla = tablero[fila][col]
+                        val player = players.find { it.turno == casilla.valor }
+
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .padding(2.dp)
+                                .background(Color.White.copy(alpha = 0.8f))
+                                .border(1.dp, Color.DarkGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (casilla.valor != 0 && player != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(
+                                            color = player.color.colorFromHex(),
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Indicador de jugadores
         playerTurn?.let { PlayersIndicator(players, it) }
     }
 }
 
-/**
- * Muestra una lista visual de los jugadores en partida con sus colores e identifica
- * visualmente quién tiene el turno actual.
- *
- * @param players Lista completa de jugadores.
- * @param currentPlayer Jugador al que le corresponde el turno.
- */
 
 @Composable
 private fun PlayersIndicator(players: List<Player>, currentPlayer: Player) {
@@ -311,16 +376,11 @@ private fun PlayersIndicator(players: List<Player>, currentPlayer: Player) {
     }
 }
 
-/**
- * Funcion para convertir un color hexadecimal (ej: "#FF0000") en un objeto [Color].
- *
- * @receiver String con formato hexadecimal.
- * @return Color correspondiente o [Color.Black] si el formato es inválido.
- */
+// Función de extensión para convertir String a Color
 fun String.colorFromHex(): Color {
     return try {
         Color(this.toColorInt())
     } catch (e: Exception) {
-        Color.Black
+        Color.Black // Color por defecto en caso de error
     }
 }
