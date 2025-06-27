@@ -1,4 +1,4 @@
-package ud.example.four_in_row.persistence
+package com.example.taller2components.persistence
 
 import kotlin.random.Random
 

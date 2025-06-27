@@ -1,4 +1,4 @@
-package ud.example.four_in_row.views
+package com.example.taller2components.views
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -49,12 +49,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.taller2components.Enum.EnumNavigation
+import com.example.taller2components.ViewModel.GameBoardViewModel
+import com.example.taller2components.persistence.Operaciones
+import com.example.taller2components.persistence.Player
 import com.google.firebase.auth.FirebaseAuth
-import ud.example.four_in_row.Enum.EnumNavigation
-import ud.example.four_in_row.R
-import ud.example.four_in_row.ViewModel.GameBoardViewModel
-import ud.example.four_in_row.persistence.Operaciones
-import ud.example.four_in_row.persistence.Player
+
 
 // Modelo de datos para partidas anteriores
 data class PastGame(
@@ -205,9 +205,9 @@ fun HomeScreen(navController: NavController, viewModel: GameBoardViewModel = vie
                                         val player = Player(
                                             idPlayer = user.uid,
                                             correo = user.email ?: "",
-                                            1,
                                             Operaciones().generateRandomColor(),
-                                            1
+                                            0,
+                                            isCurrentTurn = true
                                         )
                                         viewModel.joinBoard(joinCode, player)
                                         navController.navigate("${EnumNavigation.PLAY}/${joinCode}")
@@ -300,27 +300,6 @@ fun PastGameItem(game: PastGame) {
     }
 }
 
-@Composable
-fun CardButton(title: String, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(8.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(5.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(Modifier.height(5.dp))
-            Text(
-                title,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Spacer(Modifier.height(5.dp))
-        }
-    }
-}
 
 fun copyToClipboard(context: Context, text: String) {
     val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

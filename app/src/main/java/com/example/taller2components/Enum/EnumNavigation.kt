@@ -1,4 +1,4 @@
-package ud.example.four_in_row.Enum
+package com.example.taller2components.Enum
 
 enum class EnumNavigation {
     HOME, PLAY, SETTINGS, LOGIN, ABOUT, EXIT

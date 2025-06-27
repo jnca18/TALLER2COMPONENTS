@@ -1,13 +1,13 @@
-package ud.example.four_in_row.ViewModel
+package com.example.taller2components.ViewModel
 import androidx.lifecycle.ViewModel
+import com.example.taller2components.persistence.Player
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import ud.example.four_in_row.persistence.Operaciones
-import ud.example.four_in_row.persistence.Player
+
 
 class GameBoardViewModel : ViewModel() {
 

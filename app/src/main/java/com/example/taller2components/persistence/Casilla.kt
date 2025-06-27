@@ -1,10 +1,8 @@
-package ud.example.four_in_row.persistence
+package com.example.taller2components.persistence
 
 data class Casilla(
-    val valor: Int = 0,
-    val color: String = "" // Color hexadecimal del jugador que ocupa la casilla
-) {
-    // Posición en el tablero (opcional, puede ser útil)
-    var row: Int = -1
-    var column: Int = -1
-}
+    val fila:Int =0,
+    val columna: Int = 0,
+    val valor: Int = 0, // 0 = vacío, 1/2 = jugador
+    val color: String = "",
+)

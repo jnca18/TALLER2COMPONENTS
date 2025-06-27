@@ -1,18 +1,31 @@
-package ud.example.four_in_row.views
+package com.example.taller2components.views
 
 
+import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,14 +38,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.toColorInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import ud.example.four_in_row.Enum.EnumNavigation
-import ud.example.four_in_row.ViewModel.GameViewModel
-import ud.example.four_in_row.persistence.Player
+import com.example.taller2components.Enum.EnumNavigation
+import com.example.taller2components.ViewModel.GameViewModel
+import com.example.taller2components.persistence.Casilla
+import com.example.taller2components.persistence.Player
+import com.example.taller2components.persistence.Tablero
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,132 +58,225 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
         navController.navigate(EnumNavigation.LOGIN.toString())
         return
     }
-
     val id = remember { mutableStateOf(idBoard) }
+    val board by viewModel.board.collectAsState()
     val players by viewModel.players.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    val currentUserEmail = viewModel.currentUserEmail
-    val currentPlayerTurn by viewModel.currentPlayerTurn.collectAsState()
-    val grid by viewModel.gameGrid.collectAsState()
-    val gameStatus by viewModel.gameStatus.collectAsState()
+    val context = LocalContext.current
+    val prefs = context.getSharedPreferences("user_prefs", 0)
+    val currentUserId = prefs.getString("user_id", null)
+    Log.d("currentUserId", currentUserId.toString())
 
     LaunchedEffect(id.value) {
-        viewModel.listenToGame(id.value) // Escuchar cambios en el juego
+        viewModel.listenToPlayers(id.value)
+        viewModel.consultarTablero(id.value)
     }
 
     when {
-        isLoading -> LoadingScreen()
-        gameStatus == "finished" -> GameFinishedScreen(players, navController)
-        players.size < 2 -> WaitingForPlayersScreen()
-        else -> {
+        isLoading -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator()
+                Text("Cargando datos del tablero...")
+            }
+        }
+        board?.state == true -> {
+            val tablero = board?.let { Tablero.iniciarTablero(it) }
+
             Scaffold(
-                topBar = { GameTopBar(gameStatus) }
+                topBar = {
+                    CenterAlignedTopAppBar(
+                        title = { Text("4 en Raya") }
+                    )
+                },
             ) { innerPadding ->
                 Column(
                     modifier = Modifier.padding(innerPadding).fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    CurrentPlayerTurn(currentPlayerTurn, currentUserEmail)
-                    Spacer(modifier = Modifier.height(20.dp))
-                    FourInRowGrid(
-                        grid = grid,
-                        onColumnClick = { column ->
-                            if (currentPlayerTurn?.correo == currentUserEmail && gameStatus == "playing") {
-                                viewModel.makeMove(id.value, column)
+                    currentUserId?.let {
+                        TableroScreen(
+                            tablero = tablero,
+                            players = players,
+                            currentUserId = it,
+                            currentTurn = board!!.currentPlayerIndex,
+                            onColumnSelected = { col, player ->
+                                viewModel.switchTurn(id.value)
+                                viewModel.makeMove(id.value, col,  player)
+                            }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+        else -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                CircularProgressIndicator()
+                Text("Esperando a que el host inicie el juego...")
+            }
+        }
+    }
+}
+
+@Composable
+fun TableroScreen(
+    tablero: List<List<Casilla>>?,
+    players: List<Player>,
+    currentUserId: String,
+    currentTurn: Int,
+    onColumnSelected: (Int, Player) -> Unit
+) {
+    if (tablero.isNullOrEmpty() || tablero[0].isEmpty()) return
+
+    val playerTurn = players.find { it.turno == currentTurn }
+    Log.d("currentUserId", "prueba2: $currentUserId")
+    Log.d("currentUserId", "prueba3: ${playerTurn?.idPlayer}")
+
+    Column(
+        modifier = Modifier
+            .padding(16.dp)
+            .fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Información de turno
+        Text(
+            text = "Turno de: ${playerTurn?.correo}",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+            ),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Tablero de juego
+        Box(
+            modifier = Modifier
+                .padding(4.dp)
+        ) {
+            Column {
+                // Filas del tablero (de arriba a abajo)
+                for (row in tablero.indices) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        for (col in tablero[row].indices) {
+                            val casilla = tablero[row][col]
+                            val player = players.find { it.turno == casilla.valor }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .padding(2.dp)
+                                    .background(Color.White.copy(alpha = 0.8f))
+                                    .border(1.dp, Color.DarkGray),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (casilla.valor != 0 && player != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .background(
+                                                color = player.color.colorFromHex(),
+                                                shape = CircleShape
+                                            )
+                                    )
+                                }
                             }
                         }
+                    }
+                }
+            }
+        }
+        if(playerTurn != null){
+            Log.d("currentUserId", (playerTurn.idPlayer.equals(currentUserId)).toString())
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                for (col in tablero[0].indices) {
+                    val isColumnFull = tablero.all { row -> row[col].valor != 0 }
+
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .padding(4.dp)
+                            .clickable(
+                                enabled = !isColumnFull,
+                                onClick = { onColumnSelected(col, playerTurn) }
+                            )
+                            .background(
+                                if (isColumnFull) Color.Red.copy(alpha = 0.3f)
+                                else Color.LightGray.copy(alpha = 0.5f),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isColumnFull) Icons.Default.Close
+                            else Icons.Default.ArrowDropDown,
+                            contentDescription = "Columna $col",
+                            tint = if (isColumnFull) Color.Red else Color.Blue
+                        )
+                    }
+
+                }
+            }
+        }
+
+
+        // Indicadores de jugadores
+        playerTurn?.let { PlayersIndicator(players, it) }
+    }
+}
+
+@Composable
+private fun PlayersIndicator(players: List<Player>, currentPlayer: Player) {
+    Column(
+        modifier = Modifier.padding(top = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Jugadores:", style = MaterialTheme.typography.titleMedium)
+
+        players.forEach { player ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = 4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(player.color.colorFromHex(), CircleShape)
+                        .border(1.dp, Color.Black, CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = player.correo,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = if (player.idPlayer == currentPlayer.idPlayer) FontWeight.Bold else FontWeight.Normal
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
-                    PlayersInfo(players, currentPlayerTurn)
-                }
+                )
             }
         }
     }
-
-    ErrorMessage(errorMessage)
 }
 
-@Composable
-private fun LoadingScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator()
-        Text("Cargando datos del tablero...")
-    }
-}
-
-@Composable
-private fun GameFinishedScreen(players: List<Player>, navController: NavHostController) {
-    val winner = players.firstOrNull { it.isWinner }
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = if (winner != null) "¡${winner.correo} ha ganado!" else "¡Empate!",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        Button(onClick = { navController.popBackStack() }) {
-            Text("Volver al menú principal")
-        }
-    }
-}
-
-@Composable
-private fun WaitingForPlayersScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator()
-        Text("Esperando al segundo jugador...")
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun GameTopBar(gameStatus: String) {
-    CenterAlignedTopAppBar(
-        title = {
-            Row {
-                Text("4 en Raya")
-                if (gameStatus == "finished") {
-                    Text(" - Terminado", color = Color.Red)
-                }
-            }
-        }
-    )
-}
-
-@Composable
-private fun CurrentPlayerTurn(currentPlayer: Player?, currentUserEmail: String) {
-    currentPlayer?.let { player ->
-        Text(
-            text = "Turno de: ${player.correo}",
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = if (player.correo == currentUserEmail) Color.Green else Color.Black
-        )
-    }
-}
-
-@Composable
-private fun ErrorMessage(errorMessage: String?) {
-    errorMessage?.let {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = it, color = Color.Red, fontWeight = FontWeight.Bold)
-        }
+// Función de extensión para convertir String a Color
+fun String.colorFromHex(): Color {
+    return try {
+        Color(this.toColorInt())
+    } catch (e: Exception) {
+        Color.Black // Color por defecto en caso de error
     }
 }

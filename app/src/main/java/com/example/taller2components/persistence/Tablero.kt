@@ -1,4 +1,4 @@
-package ud.example.four_in_row.persistence
+package com.example.taller2components.persistence
 
 object Tablero {
     private var idTablero: String = ""
@@ -21,13 +21,13 @@ object Tablero {
     }
 
     // Función para realizar un movimiento en el tablero
-    fun hacerMovimiento(columna: Int, colorJugador: String): Pair<Int, Int>? {
+    fun hacerMovimiento(columna: Int, valor: Int, colorJugador: String): Pair<Int, Int>? {
         if (columna < 0 || columna >= tablero[0].size) return null
 
         // Encontrar la primera fila vacía en la columna seleccionada
         for (fila in tablero.size - 1 downTo 0) {
             if (tablero[fila][columna].valor == 0) {
-                tablero[fila][columna] = Casilla(1, colorJugador)
+                tablero[fila][columna] = Casilla(fila, columna, valor, colorJugador)
                 return Pair(fila, columna)
             }
         }
@@ -71,14 +71,5 @@ object Tablero {
         }
 
         return false
-    }
-
-    // Reiniciar el tablero
-    fun reiniciar() {
-        for (fila in tablero.indices) {
-            for (columna in tablero[fila].indices) {
-                tablero[fila][columna] = Casilla(0)
-            }
-        }
     }
 }
