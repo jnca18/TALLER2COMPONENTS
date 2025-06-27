@@ -51,6 +51,31 @@ import com.example.taller2components.persistence.Casilla
 import com.example.taller2components.persistence.Player
 import com.example.taller2components.persistence.Tablero
 
+/**
+ * Composable principal que representa la pantalla del juego "4 en Raya".
+ *
+ * Se encarga de:
+ * - Cargar y observar el estado del tablero desde el ViewModel.
+ * - Mostrar una pantalla de carga o de espera si el juego aún no ha iniciado.
+ * - Renderizar el componente del tablero si el juego ya ha comenzado.
+ *
+ * @param idBoard ID del tablero actual, pasado como argumento de navegación.
+ * @param navController Controlador de navegación para redireccionar entre pantallas.
+ * @param viewModel ViewModel del juego que maneja el estado de los datos y lógica.
+ */
+
+/**
+ * Composable principal que representa la pantalla del juego "4 en Raya".
+ *
+ * Se encarga de:
+ * - Cargar y observar el estado del tablero desde el ViewModel.
+ * - Mostrar una pantalla de carga o de espera si el juego aún no ha iniciado.
+ * - Renderizar el componente del tablero si el juego ya ha comenzado.
+ *
+ * @param idBoard ID del tablero actual, pasado como argumento de navegación.
+ * @param navController Controlador de navegación para redireccionar entre pantallas.
+ * @param viewModel ViewModel del juego que maneja el estado de los datos y lógica.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainGame(idBoard: String?, navController: NavHostController, viewModel: GameViewModel = viewModel()) {
@@ -58,6 +83,7 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
         navController.navigate(EnumNavigation.LOGIN.toString())
         return
     }
+
     val id = remember { mutableStateOf(idBoard) }
     val board by viewModel.board.collectAsState()
     val players by viewModel.players.collectAsState()
@@ -66,7 +92,6 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
     val context = LocalContext.current
     val prefs = context.getSharedPreferences("user_prefs", 0)
     val currentUserId = prefs.getString("user_id", null)
-    Log.d("currentUserId", currentUserId.toString())
 
     LaunchedEffect(id.value) {
         viewModel.listenToPlayers(id.value)
@@ -75,6 +100,7 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
 
     when {
         isLoading -> {
+            // Pantalla de carga mientras se consulta el tablero
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -84,9 +110,11 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
                 Text("Cargando datos del tablero...")
             }
         }
+
         board?.state == true -> {
             val tablero = board?.let { Tablero.iniciarTablero(it) }
 
+            // Pantalla del juego
             Scaffold(
                 topBar = {
                     CenterAlignedTopAppBar(
@@ -95,7 +123,9 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
                 },
             ) { innerPadding ->
                 Column(
-                    modifier = Modifier.padding(innerPadding).fillMaxSize(),
+                    modifier = Modifier
+                        .padding(innerPadding)
+                        .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -107,15 +137,16 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
                             currentTurn = board!!.currentPlayerIndex,
                             onColumnSelected = { col, player ->
                                 viewModel.switchTurn(id.value)
-                                viewModel.makeMove(id.value, col,  player)
+                                viewModel.makeMove(id.value, col, player)
                             }
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
+
         else -> {
+            // Mensaje mientras se espera al host
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -128,6 +159,16 @@ fun MainGame(idBoard: String?, navController: NavHostController, viewModel: Game
     }
 }
 
+/**
+ * Composable que representa visualmente el tablero de juego con las fichas y
+ * controles para que el jugador actual seleccione su movimiento.
+ *
+ * @param tablero Matriz bidimensional de casillas del tablero.
+ * @param players Lista de jugadores en la partida.
+ * @param currentUserId ID del jugador actual (identificado desde SharedPreferences).
+ * @param currentTurn Número de turno (1 o 2) que indica a qué jugador le corresponde jugar.
+ * @param onColumnSelected Función callback que se invoca cuando se selecciona una columna para jugar.
+ */
 @Composable
 fun TableroScreen(
     tablero: List<List<Casilla>>?,
@@ -139,8 +180,6 @@ fun TableroScreen(
     if (tablero.isNullOrEmpty() || tablero[0].isEmpty()) return
 
     val playerTurn = players.find { it.turno == currentTurn }
-    Log.d("currentUserId", "prueba2: $currentUserId")
-    Log.d("currentUserId", "prueba3: ${playerTurn?.idPlayer}")
 
     Column(
         modifier = Modifier
@@ -148,22 +187,16 @@ fun TableroScreen(
             .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Información de turno
+        // Mostrar de quién es el turno
         Text(
             text = "Turno de: ${playerTurn?.correo}",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.Bold,
-            ),
+            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Tablero de juego
-        Box(
-            modifier = Modifier
-                .padding(4.dp)
-        ) {
+        // Mostrar tablero visual
+        Box(modifier = Modifier.padding(4.dp)) {
             Column {
-                // Filas del tablero (de arriba a abajo)
                 for (row in tablero.indices) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -197,8 +230,9 @@ fun TableroScreen(
                 }
             }
         }
-        if(playerTurn != null){
-            Log.d("currentUserId", (playerTurn.idPlayer.equals(currentUserId)).toString())
+
+        // Flechas de selección para el jugador en turno
+        if (playerTurn != null && playerTurn.idPlayer == currentUserId) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -212,10 +246,9 @@ fun TableroScreen(
                         modifier = Modifier
                             .size(48.dp)
                             .padding(4.dp)
-                            .clickable(
-                                enabled = !isColumnFull,
-                                onClick = { onColumnSelected(col, playerTurn) }
-                            )
+                            .clickable(enabled = !isColumnFull) {
+                                onColumnSelected(col, playerTurn)
+                            }
                             .background(
                                 if (isColumnFull) Color.Red.copy(alpha = 0.3f)
                                 else Color.LightGray.copy(alpha = 0.5f),
@@ -230,16 +263,22 @@ fun TableroScreen(
                             tint = if (isColumnFull) Color.Red else Color.Blue
                         )
                     }
-
                 }
             }
         }
 
-
-        // Indicadores de jugadores
+        // Indicador de jugadores
         playerTurn?.let { PlayersIndicator(players, it) }
     }
 }
+
+/**
+ * Muestra una lista visual de los jugadores en partida con sus colores e identifica
+ * visualmente quién tiene el turno actual.
+ *
+ * @param players Lista completa de jugadores.
+ * @param currentPlayer Jugador al que le corresponde el turno.
+ */
 
 @Composable
 private fun PlayersIndicator(players: List<Player>, currentPlayer: Player) {
@@ -272,11 +311,16 @@ private fun PlayersIndicator(players: List<Player>, currentPlayer: Player) {
     }
 }
 
-// Función de extensión para convertir String a Color
+/**
+ * Funcion para convertir un color hexadecimal (ej: "#FF0000") en un objeto [Color].
+ *
+ * @receiver String con formato hexadecimal.
+ * @return Color correspondiente o [Color.Black] si el formato es inválido.
+ */
 fun String.colorFromHex(): Color {
     return try {
         Color(this.toColorInt())
     } catch (e: Exception) {
-        Color.Black // Color por defecto en caso de error
+        Color.Black
     }
 }
